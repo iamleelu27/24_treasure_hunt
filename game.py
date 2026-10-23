@@ -6,41 +6,63 @@ COLS, ROWS = 20, 15
 WALL, FLOOR, CHEST, KEY = 0, 1, 2, 3
 SPEED = 3
 
+
 def generate_world():
-    grid = [[WALL]*COLS for _ in range(ROWS)]
+    grid = [[WALL] * COLS for _ in range(ROWS)]
     rooms = []
+
     for _ in range(8):
-        w = random.randint(3,6)
-        h = random.randint(3,5)
-        x = random.randint(1, COLS-w-1)
-        y = random.randint(1, ROWS-h-1)
+        w = random.randint(3, 6)
+        h = random.randint(3, 5)
+        x = random.randint(1, COLS - w - 1)
+        y = random.randint(1, ROWS - h - 1)
+
         room = pygame.Rect(x, y, w, h)
-        overlap = any(room.inflate(2,2).colliderect(r) for r in rooms)
+        overlap = any(
+            room.inflate(2, 2).colliderect(r) for r in rooms
+        )
+
         if not overlap:
             rooms.append(room)
-            for ry in range(y, y+h):
-                for rx in range(x, x+w):
+            for ry in range(y, y + h):
+                for rx in range(x, x + w):
                     grid[ry][rx] = FLOOR
 
-    for i in range(len(rooms)-1):
+    # Ensure that at least two rooms always exist.
+    if len(rooms) < 2:
+        rooms = [
+            pygame.Rect(1, 1, 4, 4),
+            pygame.Rect(COLS - 5, ROWS - 5, 4, 4),
+        ]
+
+        for room in rooms:
+            for ry in range(room.y, room.bottom):
+                for rx in range(room.x, room.right):
+                    grid[ry][rx] = FLOOR
+
+    # Connect the rooms with corridors.
+    for i in range(len(rooms) - 1):
         ax, ay = rooms[i].centerx, rooms[i].centery
-        bx, by = rooms[i+1].centerx, rooms[i+1].centery
+        bx, by = rooms[i + 1].centerx, rooms[i + 1].centery
+
         cx = ax
         while cx != bx:
             grid[ay][cx] = FLOOR
             cx += 1 if bx > cx else -1
+
         cy = ay
         while cy != by:
             grid[cy][bx] = FLOOR
             cy += 1 if by > cy else -1
 
-    if len(rooms) >= 2:
-        cr, ck = rooms[-1], rooms[-2]
-        grid[cr.centery][cr.centerx] = CHEST
-        grid[ck.centery][ck.centerx] = KEY
+    # Place the chest and key in separate rooms.
+    cr, ck = rooms[-1], rooms[-2]
+    grid[cr.centery][cr.centerx] = CHEST
+    grid[ck.centery][ck.centerx] = KEY
 
-    start = rooms[0] if rooms else None
+    start = rooms[0]
     return grid, start
+
 
 COLORS = {
     WALL: (60,50,70),
