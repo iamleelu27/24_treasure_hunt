@@ -170,6 +170,60 @@ WIDTH = COLS * TILE
 HEIGHT = ROWS * TILE + 50
 FPS = 60
 
+def draw_minimap(screen, grid, player):
+    # Mini-map dimensions and position
+    map_tile = 6
+    map_width = COLS * map_tile
+    map_height = ROWS * map_tile
+    margin = 10
+
+    map_x = WIDTH - map_width - margin
+    map_y = margin
+
+    # Draw mini-map background
+    pygame.draw.rect(
+        screen, (25, 25, 35),
+        (map_x - 4, map_y - 4, map_width + 8, map_height + 8)
+    )
+
+    # Draw the dungeon tiles
+    for r in range(ROWS):
+        for c in range(COLS):
+            cell = grid[r][c]
+
+            if cell == WALL:
+                color = (60, 50, 70)
+            elif cell == TRAP:
+                color = (190, 55, 55)
+            elif cell == KEY:
+                color = (220, 220, 60)
+            elif cell == CHEST:
+                color = (200, 160, 30)
+            else:
+                color = (200, 190, 170)
+
+            pygame.draw.rect(
+                screen,
+                color,
+                (
+                    map_x + c * map_tile,
+                    map_y + r * map_tile,
+                    map_tile - 1,
+                    map_tile - 1
+                )
+            )
+
+    # Show the player's current position
+    player_x = map_x + (player.rect.centerx // TILE) * map_tile
+    player_y = map_y + (player.rect.centery // TILE) * map_tile
+
+    pygame.draw.circle(
+        screen,
+        (60, 120, 255),
+        (player_x + map_tile // 2, player_y + map_tile // 2),
+        3
+    )
+
 class GameEngine:
     def __init__(self):
         pygame.init()
@@ -277,6 +331,7 @@ class GameEngine:
 
         self.player.draw(self.screen)
         self.guard.draw(self.screen)
+        draw_minimap(self.screen, self.grid, self.player)
         hud = pygame.Rect(0,ROWS*TILE,WIDTH,50)
         pygame.draw.rect(self.screen,(20,20,35),hud)
         st = self.font.render(self.status+"  |  R=Restart", True, (200,200,200))
