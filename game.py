@@ -3,7 +3,7 @@ import random
 
 TILE = 40
 COLS, ROWS = 20, 15
-WALL, FLOOR, CHEST, KEY = 0, 1, 2, 3
+WALL, FLOOR, CHEST, KEY, TRAP = 0, 1, 2, 3, 4
 SPEED = 3
 
 
@@ -57,11 +57,32 @@ def generate_world():
 
     # Place the chest and key in separate rooms.
     cr, ck = rooms[-1], rooms[-2]
+    
     grid[cr.centery][cr.centerx] = CHEST
     grid[ck.centery][ck.centerx] = KEY
 
+    # Place traps outside the starting room.
     start = rooms[0]
+    candidates = []
+
+    for r in range(ROWS):
+        for c in range(COLS):
+            if grid[r][c] != FLOOR:
+                continue
+
+            if start.collidepoint(c, r):
+                continue
+
+            candidates.append((r, c))
+
+    # Place up to 6 traps on available floor tiles.
+    random.shuffle(candidates)
+
+    for r, c in candidates[:6]:
+        grid[r][c] = TRAP
+
     return grid, start
+
 
 
 COLORS = {
@@ -69,6 +90,7 @@ COLORS = {
     FLOOR: (200,190,170),
     CHEST: (200,160,30),
     KEY: (220,220,60),
+    TRAP: (190,55,55),
 }
 
 class Player:
@@ -121,6 +143,8 @@ class GameEngine:
             sy = start.y * TILE + 6
         else:
             sx, sy = TILE+6, TILE+6
+        self.start_x = sx
+        self.start_y = sy
         self.player = Player(sx, sy)
         self.won = False
         self.status = "Find the KEY, then the CHEST!"
@@ -139,6 +163,10 @@ class GameEngine:
         pc = self.player.rect.centerx // TILE
         if 0<=pr<ROWS and 0<=pc<COLS:
             cell = self.grid[pr][pc]
+            if cell == TRAP:
+                self.player.rect.topleft = (self.start_x, self.start_y)
+                self.status = "Trap triggered! Back to start!"
+                return
             if cell == KEY:
                 self.player.has_key = True
                 self.grid[pr][pc] = FLOOR
@@ -154,10 +182,25 @@ class GameEngine:
                 cell = self.grid[r][c]
                 rect = pygame.Rect(c*TILE, r*TILE, TILE, TILE)
                 pygame.draw.rect(self.screen, COLORS[cell], rect)
+                
                 if cell == KEY:
-                    pygame.draw.circle(self.screen, (255,240,60),(c*TILE+TILE//2, r*TILE+TILE//2),10)
+                    pygame.draw.circle(
+                        self.screen, (255, 240, 60),
+                        (c*TILE + TILE//2, r*TILE + TILE//2), 10
+                    )
                 elif cell == CHEST:
-                    pygame.draw.rect(self.screen,(180,120,20),rect.inflate(-12,-12),border_radius=4)
+                    pygame.draw.rect(
+                        self.screen, (180, 120, 20),
+                        rect.inflate(-12, -12), border_radius=4
+                    )
+                elif cell == TRAP:
+                    cx = c*TILE + TILE//2
+                    cy = r*TILE + TILE//2
+                    pygame.draw.polygon(
+                        self.screen, (120, 20, 20),
+                        [(cx, cy-13), (cx-13, cy+11), (cx+13, cy+11)]
+                    )
+
         self.player.draw(self.screen)
         hud = pygame.Rect(0,ROWS*TILE,WIDTH,50)
         pygame.draw.rect(self.screen,(20,20,35),hud)
