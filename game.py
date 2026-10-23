@@ -336,6 +336,46 @@ class GameEngine:
         pygame.draw.rect(self.screen,(20,20,35),hud)
         st = self.font.render(self.status+"  |  R=Restart", True, (200,200,200))
         self.screen.blit(st,(8,ROWS*TILE+13))
+        
+        # Draw inventory UI
+        inventory_x = WIDTH - 150
+        inventory_y = ROWS * TILE + 8
+
+        pygame.draw.rect(
+            self.screen, (60, 60, 80),
+            (inventory_x, inventory_y, 140, 34),
+            border_radius=5
+        )
+
+        inventory_label = self.font.render("INV:", True, (220, 220, 220))
+        self.screen.blit(inventory_label, (inventory_x + 5, inventory_y + 5))
+
+        # Draw the key icon when the player has collected it.
+        slot_x = inventory_x + 65
+        slot_y = inventory_y + 4
+
+        pygame.draw.rect(
+            self.screen, (35, 35, 50),
+            (slot_x, slot_y, 26, 26),
+            border_radius=3
+        )
+
+        if self.player.has_key:
+            pygame.draw.circle(
+                self.screen, (220, 220, 60),
+                (slot_x + 10, slot_y + 10), 5, 2
+            )
+            pygame.draw.line(
+                self.screen, (220, 220, 60),
+                (slot_x + 14, slot_y + 10),
+                (slot_x + 22, slot_y + 10), 3
+            )
+            pygame.draw.line(
+                self.screen, (220, 220, 60),
+                (slot_x + 19, slot_y + 10),
+                (slot_x + 19, slot_y + 15), 2
+            )
+
         if self.won:
             ov=pygame.Surface((WIDTH,ROWS*TILE),pygame.SRCALPHA)
             ov.fill((0,0,0,140))
