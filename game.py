@@ -122,6 +122,50 @@ class Player:
             pygame.draw.circle(screen, (220,220,60), (self.rect.right-6, self.rect.top+6), 5)
 
 
+class EnemyGuard:
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 28, 28)
+        self.color = (200, 40, 40)
+        self.direction = 1
+        self.distance = 0
+        self.max_distance = TILE * 2
+
+    def update(self, grid):
+        dx = self.direction * 2
+        new_rect = self.rect.move(dx, 0)
+
+        # Patrol only on walkable tiles.
+        points = [
+            (new_rect.left, new_rect.top),
+            (new_rect.right - 1, new_rect.top),
+            (new_rect.left, new_rect.bottom - 1),
+            (new_rect.right - 1, new_rect.bottom - 1),
+        ]
+
+        for px, py in points:
+            c, r = px // TILE, py // TILE
+            if not (0 <= r < ROWS and 0 <= c < COLS) or grid[r][c] == WALL:
+                self.direction *= -1
+                return
+
+        self.rect = new_rect
+        self.distance += abs(dx)
+
+        if self.distance >= self.max_distance:
+            self.direction *= -1
+            self.distance = 0
+
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.color, self.rect, border_radius=6)
+        pygame.draw.circle(
+            screen, (255, 255, 255),
+            (self.rect.centerx - 5, self.rect.centery - 3), 3
+        )
+        pygame.draw.circle(
+            screen, (255, 255, 255),
+            (self.rect.centerx + 5, self.rect.centery - 3), 3
+        )
+
 WIDTH = COLS * TILE
 HEIGHT = ROWS * TILE + 50
 FPS = 60
@@ -136,16 +180,27 @@ class GameEngine:
         self.big_font = pygame.font.SysFont("monospace", 40, bold=True)
         self.reset()
 
+    
     def reset(self):
         self.grid, start = generate_world()
-        if start:
-            sx = start.x * TILE + 6
-            sy = start.y * TILE + 6
-        else:
-            sx, sy = TILE+6, TILE+6
+
+        sx = start.x * TILE + 6
+        sy = start.y * TILE + 6
+
         self.start_x = sx
         self.start_y = sy
         self.player = Player(sx, sy)
+
+        # Place the guard near the chest.
+        chest_pos = next(
+            (r, c)
+            for r in range(ROWS)
+            for c in range(COLS)
+            if self.grid[r][c] == CHEST
+        )
+        cr, cc = chest_pos
+        self.guard = EnemyGuard(cc * TILE + 6, cr * TILE + 6)
+
         self.won = False
         self.status = "Find the KEY, then the CHEST!"
 
@@ -155,25 +210,44 @@ class GameEngine:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r: self.reset()
         return True
 
+    
     def update(self):
-        if self.won: return
+        if self.won:
+            return
+
         keys = pygame.key.get_pressed()
         self.player.move(keys, self.grid, ROWS, COLS)
+
+        # Move the enemy guard.
+        self.guard.update(self.grid)
+
+        # Reset the player if caught by the guard.
+        if self.player.rect.colliderect(self.guard.rect):
+            self.player.rect.topleft = (self.start_x, self.start_y)
+            self.status = "Caught by the guard! Back to start!"
+            return
+
+        # Check the tile occupied by the player.
         pr = self.player.rect.centery // TILE
         pc = self.player.rect.centerx // TILE
-        if 0<=pr<ROWS and 0<=pc<COLS:
+
+        if 0 <= pr < ROWS and 0 <= pc < COLS:
             cell = self.grid[pr][pc]
+
             if cell == TRAP:
                 self.player.rect.topleft = (self.start_x, self.start_y)
                 self.status = "Trap triggered! Back to start!"
                 return
+
             if cell == KEY:
                 self.player.has_key = True
                 self.grid[pr][pc] = FLOOR
                 self.status = "Got the key! Find the CHEST!"
+
             elif cell == CHEST and self.player.has_key:
                 self.won = True
                 self.status = "Treasure found!"
+
 
     def draw(self):
         self.screen.fill((30,25,40))
@@ -202,6 +276,7 @@ class GameEngine:
                     )
 
         self.player.draw(self.screen)
+        self.guard.draw(self.screen)
         hud = pygame.Rect(0,ROWS*TILE,WIDTH,50)
         pygame.draw.rect(self.screen,(20,20,35),hud)
         st = self.font.render(self.status+"  |  R=Restart", True, (200,200,200))
